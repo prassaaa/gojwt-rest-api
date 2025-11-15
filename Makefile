@@ -26,6 +26,9 @@ install: ## Install dependencies
 	@go mod tidy
 	@echo "Dependencies installed"
 
+generate-secret: ## Generate JWT secret
+	@go run cmd/tools/generate_secret.go
+
 test: ## Run tests
 	@echo "Running tests..."
 	@go test -v ./...

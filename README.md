@@ -74,7 +74,19 @@ cd gojwt-rest-api
 cp .env.example .env
 ```
 
-3. Edit `.env` dan sesuaikan konfigurasi:
+3. Generate JWT Secret:
+```bash
+# Menggunakan Go tool
+go run cmd/tools/generate_secret.go
+
+# Atau dengan make
+make generate-secret
+
+# Atau dengan OpenSSL
+openssl rand -base64 32
+```
+
+4. Edit `.env` dan sesuaikan konfigurasi:
 ```env
 DB_HOST=localhost
 DB_PORT=3306
@@ -83,24 +95,25 @@ DB_PASSWORD=your_password
 DB_NAME=gojwt_db
 JWT_SECRET=your-super-secret-key
 ```
+**⚠️ Ganti JWT_SECRET dengan hasil generate di step 3!**
 
-4. Buat database MySQL:
+5. Buat database MySQL:
 ```bash
 mysql -u root -p
 CREATE DATABASE gojwt_db;
 ```
 
-5. Install dependencies:
+6. Install dependencies:
 ```bash
 go mod download
 ```
 
-6. Build aplikasi:
+7. Build aplikasi:
 ```bash
 go build -o bin/api cmd/api/main.go
 ```
 
-7. Run aplikasi:
+8. Run aplikasi:
 ```bash
 ./bin/api
 ```
