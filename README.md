@@ -1,0 +1,307 @@
+# Go JWT REST API
+
+RESTful API dengan JWT Authentication yang dibangun menggunakan Go, mengikuti Clean Architecture dan best practices.
+
+## Fitur
+
+- **Authentication & Authorization**
+  - Register dan Login dengan JWT
+  - Password hashing menggunakan bcrypt
+  - Protected routes dengan JWT middleware
+
+- **CRUD Operations**
+  - User management (Create, Read, Update, Delete)
+  - Pagination dan filtering
+  - Search functionality
+
+- **Security & Performance**
+  - Rate limiting
+  - CORS middleware
+  - Input validation
+  - Graceful shutdown
+
+- **Clean Architecture**
+  - Separation of concerns (Domain, Repository, Service, Handler)
+  - Interface-based design untuk testability
+  - Dependency injection
+
+## Tech Stack
+
+- **Framework**: Gin
+- **Database**: MySQL + GORM
+- **Authentication**: JWT (golang-jwt/jwt)
+- **Validation**: go-playground/validator
+- **Password Hashing**: bcrypt
+
+## Struktur Project
+
+```
+gojwt-rest-api/
+├── cmd/api/              # Application entry point
+├── internal/
+│   ├── config/          # Configuration & database
+│   ├── domain/          # Domain models & DTOs
+│   ├── repository/      # Data access layer
+│   ├── service/         # Business logic
+│   ├── handler/         # HTTP handlers
+│   ├── middleware/      # Middleware (auth, rate limit, cors)
+│   └── utils/           # Utilities (JWT, password)
+├── pkg/                 # Public packages
+│   ├── logger/
+│   └── validator/
+├── migrations/          # Database migrations
+├── .env.example         # Environment variables template
+└── .gitignore
+```
+
+## Setup & Installation
+
+### Prerequisites
+
+- Go 1.21+
+- MySQL 5.7+
+
+### Installation
+
+1. Clone repository:
+```bash
+git clone <repository-url>
+cd gojwt-rest-api
+```
+
+2. Copy environment file:
+```bash
+cp .env.example .env
+```
+
+3. Edit `.env` dan sesuaikan konfigurasi:
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=gojwt_db
+JWT_SECRET=your-super-secret-key
+```
+
+4. Buat database MySQL:
+```bash
+mysql -u root -p
+CREATE DATABASE gojwt_db;
+```
+
+5. Install dependencies:
+```bash
+go mod download
+```
+
+6. Build aplikasi:
+```bash
+go build -o bin/api cmd/api/main.go
+```
+
+7. Run aplikasi:
+```bash
+./bin/api
+```
+
+Atau langsung dengan:
+```bash
+go run cmd/api/main.go
+```
+
+Server akan berjalan di `http://localhost:8080`
+
+## API Endpoints
+
+### Health Check
+```
+GET /health
+```
+
+### Authentication (Public)
+
+**Register**
+```
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+**Login**
+```
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+### Users (Protected - Requires JWT)
+
+Semua endpoints di bawah memerlukan header:
+```
+Authorization: Bearer <your-jwt-token>
+```
+
+**Get Profile**
+```
+GET /api/v1/users/profile
+```
+
+**Get All Users (with pagination)**
+```
+GET /api/v1/users?page=1&page_size=10&search=john
+```
+
+**Get User by ID**
+```
+GET /api/v1/users/:id
+```
+
+**Update User**
+```
+PUT /api/v1/users/:id
+Content-Type: application/json
+
+{
+  "name": "John Updated",
+  "email": "johnupdated@example.com"
+}
+```
+
+**Delete User**
+```
+DELETE /api/v1/users/:id
+```
+
+## Testing dengan cURL
+
+### Register
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "password123"
+  }'
+```
+
+### Login
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "password123"
+  }'
+```
+
+### Get Profile (dengan token)
+```bash
+curl -X GET http://localhost:8080/api/v1/users/profile \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Best Practices yang Diimplementasikan
+
+1. **Clean Architecture**
+   - Domain layer: Business entities
+   - Repository layer: Data access abstraction
+   - Service layer: Business logic
+   - Handler layer: HTTP handling
+
+2. **Interface-based Design**
+   - Repository dan Service menggunakan interface
+   - Memudahkan testing dan dependency injection
+
+3. **Error Handling**
+   - Consistent error responses
+   - Custom error messages
+   - Proper HTTP status codes
+
+4. **Security**
+   - Password hashing dengan bcrypt
+   - JWT token authentication
+   - Rate limiting untuk mencegah abuse
+   - Input validation
+
+5. **Configuration Management**
+   - Environment variables
+   - Default values
+   - Configuration validation
+
+6. **Database**
+   - Connection pooling
+   - Auto migrations
+   - Proper indexing (email unique index)
+
+7. **Middleware**
+   - Authentication middleware
+   - Rate limiting middleware
+   - CORS middleware
+
+8. **Graceful Shutdown**
+   - Signal handling (SIGINT, SIGTERM)
+   - Connection cleanup
+   - Timeout context
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| SERVER_PORT | Server port | 8080 |
+| SERVER_HOST | Server host | localhost |
+| DB_HOST | Database host | localhost |
+| DB_PORT | Database port | 3306 |
+| DB_USER | Database user | root |
+| DB_PASSWORD | Database password | - |
+| DB_NAME | Database name | gojwt_db |
+| JWT_SECRET | JWT secret key | - (required) |
+| JWT_EXPIRATION_HOURS | Token expiration | 24 |
+| RATE_LIMIT_REQUESTS | Rate limit requests | 100 |
+| RATE_LIMIT_DURATION | Rate limit duration | 1m |
+| APP_ENV | Environment | development |
+
+## Development
+
+### Run dengan hot reload (install air):
+```bash
+go install github.com/air-verse/air@latest
+air
+```
+
+### Format code:
+```bash
+go fmt ./...
+```
+
+### Lint:
+```bash
+golangci-lint run
+```
+
+## Production Deployment
+
+1. Set `APP_ENV=production` di environment
+2. Use strong `JWT_SECRET`
+3. Setup proper database credentials
+4. Use reverse proxy (Nginx)
+5. Enable HTTPS
+6. Setup monitoring dan logging
+
+## License
+
+MIT
+
+## Author
+
+Developed as a learning project for Go REST API with Clean Architecture.

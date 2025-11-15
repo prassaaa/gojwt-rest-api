@@ -1,0 +1,79 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.coverage
+coverage.html
+coverage.txt
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Binary
+/bin/
+/tmp/
+/dist/
+
+# Logs
+*.log
+logs/
+
+# Air (hot reload)
+tmp/
+.air.toml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation
+/docs/site/
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.cer
+
+# Backups
+*.bak
+*.backup
+*~
+
+# Debug
+__debug_bin
