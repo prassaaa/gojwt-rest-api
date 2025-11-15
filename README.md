@@ -65,7 +65,7 @@ gojwt-rest-api/
 
 1. Clone repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/prassaaa/gojwt-rest-api
 cd gojwt-rest-api
 ```
 
