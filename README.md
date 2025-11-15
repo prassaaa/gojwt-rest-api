@@ -37,7 +37,9 @@ RESTful API dengan JWT Authentication yang dibangun menggunakan Go, mengikuti Cl
 
 ```
 gojwt-rest-api/
-├── cmd/api/              # Application entry point
+├── cmd/
+│   ├── api/             # Application entry point
+│   └── tools/           # Tools (JWT secret generator)
 ├── internal/
 │   ├── config/          # Configuration & database
 │   ├── domain/          # Domain models & DTOs
@@ -50,8 +52,14 @@ gojwt-rest-api/
 │   ├── logger/
 │   └── validator/
 ├── migrations/          # Database migrations
+├── docs/                # Documentation
+│   ├── HOT_RELOAD_GUIDE.md
+│   └── JWT_SECRET_GUIDE.md          # Air hot reload config
+├── .air.toml.example    # Air config template
 ├── .env.example         # Environment variables template
-└── .gitignore
+├── .gitignore
+├── Makefile
+└── README.md
 ```
 
 ## Setup & Installation
@@ -286,11 +294,27 @@ curl -X GET http://localhost:8080/api/v1/users/profile \
 
 ## Development
 
-### Run dengan hot reload (install air):
+### Run dengan hot reload:
+
+Air sudah dikonfigurasi untuk hot reload. Setiap kali save file `.go`, aplikasi akan otomatis rebuild dan restart.
+
 ```bash
+# Install Air (jika belum)
 go install github.com/air-verse/air@latest
+
+# Tambahkan ~/go/bin ke PATH (jika belum)
+export PATH=$PATH:~/go/bin
+
+# Run dengan Air
 air
+
+# Atau dengan Makefile
+make dev
 ```
+
+**Cara kerja**: Edit file `.go` → Save → Air auto reload → Test langsung!
+
+Lihat dokumentasi lengkap: [docs/HOT_RELOAD_GUIDE.md](docs/HOT_RELOAD_GUIDE.md)
 
 ### Format code:
 ```bash
@@ -310,11 +334,3 @@ golangci-lint run
 4. Use reverse proxy (Nginx)
 5. Enable HTTPS
 6. Setup monitoring dan logging
-
-## License
-
-MIT
-
-## Author
-
-Developed as a learning project for Go REST API with Clean Architecture.
