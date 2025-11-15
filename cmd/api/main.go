@@ -69,6 +69,22 @@ func main() {
 	router.Use(middleware.CORSMiddleware())
 	router.Use(middleware.RateLimitMiddleware(rateLimiter))
 
+	// Welcome endpoint
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Welcome to Go JWT REST API",
+			"version": "1.0.0",
+			"status":  "running",
+			"endpoints": gin.H{
+				"health":   "/health",
+				"register": "/api/v1/auth/register",
+				"login":    "/api/v1/auth/login",
+				"users":    "/api/v1/users (requires auth)",
+			},
+			"documentation": "https://github.com/prassaaa/gojwt-rest-api",
+		})
+	})
+
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
