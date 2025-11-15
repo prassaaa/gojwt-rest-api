@@ -1,6 +1,19 @@
+<div align="center">
+
 # Go JWT REST API
 
+![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-5.7+-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-Authentication-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+
+[![Gin Framework](https://img.shields.io/badge/Gin-Framework-00ADD8?style=flat-square&logo=go)](https://gin-gonic.com/)
+[![GORM](https://img.shields.io/badge/GORM-ORM-00ADD8?style=flat-square)](https://gorm.io/)
+
 RESTful API dengan JWT Authentication yang dibangun menggunakan Go, mengikuti Clean Architecture dan best practices.
+
+</div>
+
+---
 
 ## Fitur
 
