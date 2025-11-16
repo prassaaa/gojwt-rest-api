@@ -15,13 +15,17 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	RateLimit RateLimitConfig
+	CORS     CORSConfig
 	AppEnv   string
 }
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port string
-	Host string
+	Port         string
+	Host         string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
 }
 
 // DatabaseConfig holds database configuration
@@ -43,6 +47,12 @@ type JWTConfig struct {
 type RateLimitConfig struct {
 	RequestsPerDuration int
 	Duration            time.Duration
+	CleanupInterval     time.Duration
+}
+
+// CORSConfig holds CORS configuration
+type CORSConfig struct {
+	AllowedOrigins string
 }
 
 // Load loads configuration from environment variables
@@ -52,8 +62,11 @@ func Load() (*Config, error) {
 
 	config := &Config{
 		Server: ServerConfig{
-			Port: getEnv("SERVER_PORT", "8080"),
-			Host: getEnv("SERVER_HOST", "localhost"),
+			Port:         getEnv("SERVER_PORT", "8080"),
+			Host:         getEnv("SERVER_HOST", "localhost"),
+			ReadTimeout:  parseDuration(getEnv("SERVER_READ_TIMEOUT", "15s")),
+			WriteTimeout: parseDuration(getEnv("SERVER_WRITE_TIMEOUT", "15s")),
+			IdleTimeout:  parseDuration(getEnv("SERVER_IDLE_TIMEOUT", "60s")),
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
@@ -69,6 +82,10 @@ func Load() (*Config, error) {
 		RateLimit: RateLimitConfig{
 			RequestsPerDuration: getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
 			Duration:            parseDuration(getEnv("RATE_LIMIT_DURATION", "1m")),
+			CleanupInterval:     parseDuration(getEnv("RATE_LIMIT_CLEANUP_INTERVAL", "1m")),
+		},
+		CORS: CORSConfig{
+			AllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 		},
 		AppEnv: getEnv("APP_ENV", "development"),
 	}

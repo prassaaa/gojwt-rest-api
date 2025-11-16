@@ -36,7 +36,12 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, domain.ErrorResponse("user not found", err))
+		switch err {
+		case domain.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+		default:
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve user profile", err))
+		}
 		return
 	}
 
@@ -53,7 +58,12 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 
 	user, err := h.userService.GetUserByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, domain.ErrorResponse("user not found", err))
+		switch err {
+		case domain.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+		default:
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve user", err))
+		}
 		return
 	}
 
@@ -111,20 +121,27 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 
 	// Bind JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid request body", err))
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse(domain.ErrInvalidRequest.Error(), err))
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("validation failed", err))
+	if validationErrors := h.validator.Validate(&req); len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse(domain.ErrValidationFailed.Error(), validationErrors))
 		return
 	}
 
 	// Update user
 	user, err := h.userService.UpdateUser(uint(id), &req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("failed to update user", err))
+		switch err {
+		case domain.ErrEmailAlreadyInUse:
+			c.JSON(http.StatusConflict, domain.ErrorResponse(domain.ErrEmailAlreadyInUse.Error(), err))
+		case domain.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+		default:
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrFailedToUpdateUser.Error(), err))
+		}
 		return
 	}
 
@@ -140,7 +157,12 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	if err := h.userService.DeleteUser(uint(id)); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("failed to delete user", err))
+		switch err {
+		case domain.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+		default:
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to delete user", err))
+		}
 		return
 	}
 

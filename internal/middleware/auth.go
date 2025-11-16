@@ -9,13 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	contextUserIDKey   = "user_id"
+	contextUserEmailKey = "user_email"
+)
+
 // AuthMiddleware creates JWT authentication middleware
 func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, domain.ErrorResponse("authorization header required", nil))
+			c.JSON(http.StatusUnauthorized, domain.ErrorResponse(domain.ErrAuthHeaderRequired.Error(), nil))
 			c.Abort()
 			return
 		}
@@ -23,7 +28,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		// Check if it's a Bearer token
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, domain.ErrorResponse("invalid authorization header format", nil))
+			c.JSON(http.StatusUnauthorized, domain.ErrorResponse(domain.ErrInvalidAuthHeaderFormat.Error(), nil))
 			c.Abort()
 			return
 		}
@@ -33,14 +38,14 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		// Validate token
 		claims, err := utils.ValidateToken(token, jwtSecret)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, domain.ErrorResponse("invalid or expired token", err))
+			c.JSON(http.StatusUnauthorized, domain.ErrorResponse(domain.ErrInvalidOrExpiredToken.Error(), err))
 			c.Abort()
 			return
 		}
 
 		// Set user information in context
-		c.Set("user_id", claims.UserID)
-		c.Set("user_email", claims.Email)
+		c.Set(contextUserIDKey, claims.UserID)
+		c.Set(contextUserEmailKey, claims.Email)
 
 		c.Next()
 	}
@@ -48,7 +53,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 
 // GetUserID retrieves user ID from context
 func GetUserID(c *gin.Context) (uint, bool) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get(contextUserIDKey)
 	if !exists {
 		return 0, false
 	}
@@ -57,7 +62,7 @@ func GetUserID(c *gin.Context) (uint, bool) {
 
 // GetUserEmail retrieves user email from context
 func GetUserEmail(c *gin.Context) (string, bool) {
-	email, exists := c.Get("user_email")
+	email, exists := c.Get(contextUserEmailKey)
 	if !exists {
 		return "", false
 	}

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"gojwt-rest-api/internal/domain"
 	"gojwt-rest-api/internal/repository"
 	"gojwt-rest-api/internal/utils"
@@ -11,7 +10,7 @@ import (
 // UserService defines the interface for user business logic
 type UserService interface {
 	Register(req *domain.RegisterRequest) (*domain.User, error)
-	Login(req *domain.LoginRequest) (*domain.LoginResponse, string, error)
+	Login(req *domain.LoginRequest) (*domain.LoginResponse, error)
 	GetUserByID(id uint) (*domain.User, error)
 	GetAllUsers(pagination *domain.PaginationQuery) ([]*domain.User, int64, error)
 	UpdateUser(id uint, req *domain.UpdateUserRequest) (*domain.User, error)
@@ -37,15 +36,19 @@ func NewUserService(userRepo repository.UserRepository, jwtSecret string, jwtExp
 // Register registers a new user
 func (s *userServiceImpl) Register(req *domain.RegisterRequest) (*domain.User, error) {
 	// Check if user already exists
-	existingUser, _ := s.userRepo.FindByEmail(req.Email)
+	existingUser, err := s.userRepo.FindByEmail(req.Email)
+	if err != nil {
+		// Handle potential database errors
+		return nil, err
+	}
 	if existingUser != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, domain.ErrUserAlreadyExists
 	}
 
 	// Hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
-		return nil, errors.New("failed to hash password")
+		return nil, domain.ErrFailedToHashPassword
 	}
 
 	// Create user
@@ -56,29 +59,29 @@ func (s *userServiceImpl) Register(req *domain.RegisterRequest) (*domain.User, e
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
-		return nil, errors.New("failed to create user")
+		return nil, domain.ErrFailedToCreateUser
 	}
 
 	return user, nil
 }
 
 // Login authenticates a user and returns a JWT token
-func (s *userServiceImpl) Login(req *domain.LoginRequest) (*domain.LoginResponse, string, error) {
+func (s *userServiceImpl) Login(req *domain.LoginRequest) (*domain.LoginResponse, error) {
 	// Find user by email
 	user, err := s.userRepo.FindByEmail(req.Email)
 	if err != nil {
-		return nil, "", errors.New("invalid email or password")
+		return nil, domain.ErrInvalidCredentials
 	}
 
 	// Check password
 	if err := utils.CheckPassword(user.Password, req.Password); err != nil {
-		return nil, "", errors.New("invalid email or password")
+		return nil, domain.ErrInvalidCredentials
 	}
 
 	// Generate JWT token
 	token, err := utils.GenerateToken(user.ID, user.Email, s.jwtSecret, s.jwtExpiry)
 	if err != nil {
-		return nil, "", errors.New("failed to generate token")
+		return nil, domain.ErrFailedToGenerateToken
 	}
 
 	response := &domain.LoginResponse{
@@ -86,7 +89,7 @@ func (s *userServiceImpl) Login(req *domain.LoginRequest) (*domain.LoginResponse
 		Token: token,
 	}
 
-	return response, token, nil
+	return response, nil
 }
 
 // GetUserByID retrieves a user by ID
@@ -124,9 +127,13 @@ func (s *userServiceImpl) UpdateUser(id uint, req *domain.UpdateUserRequest) (*d
 
 	// Check if email is being changed and if it's already taken
 	if req.Email != "" && req.Email != user.Email {
-		existingUser, _ := s.userRepo.FindByEmail(req.Email)
+		existingUser, err := s.userRepo.FindByEmail(req.Email)
+		if err != nil {
+			// Handle potential database errors
+			return nil, err
+		}
 		if existingUser != nil {
-			return nil, errors.New("email already in use")
+			return nil, domain.ErrEmailAlreadyInUse
 		}
 		user.Email = req.Email
 	}
@@ -138,7 +145,7 @@ func (s *userServiceImpl) UpdateUser(id uint, req *domain.UpdateUserRequest) (*d
 
 	// Save changes
 	if err := s.userRepo.Update(user); err != nil {
-		return nil, errors.New("failed to update user")
+		return nil, domain.ErrFailedToUpdateUser
 	}
 
 	return user, nil

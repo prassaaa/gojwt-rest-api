@@ -11,7 +11,6 @@ import (
 	"gojwt-rest-api/migrations"
 	"gojwt-rest-api/pkg/logger"
 	"gojwt-rest-api/pkg/validator"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,6 +20,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	welcomeMessage   = "Welcome to Go JWT REST API"
+	apiVersion       = "1.0.0"
+	serverStatus     = "running"
+	healthEndpoint   = "/health"
+	registerEndpoint = "/api/v1/auth/register"
+	loginEndpoint    = "/api/v1/auth/login"
+	usersEndpoint    = "/api/v1/users (requires auth)"
+	documentationURL = "https://github.com/prassaaa/gojwt-rest-api"
+)
+
 func main() {
 	// Initialize logger
 	appLogger := logger.New()
@@ -28,7 +38,7 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("Failed to load configuration:", err)
+		appLogger.Fatal("Failed to load configuration:", err)
 	}
 
 	// Set Gin mode
@@ -37,20 +47,20 @@ func main() {
 	}
 
 	// Initialize database
-	db, err := config.NewDatabase(cfg)
+	db, err := config.NewDatabase(cfg, appLogger)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		appLogger.Fatal("Failed to connect to database:", err)
 	}
 
 	// Run migrations
 	if err := migrations.Migrate(db); err != nil {
-		log.Fatal("Failed to run migrations:", err)
+		appLogger.Fatal("Failed to run migrations:", err)
 	}
 	appLogger.Info("Database migrations completed successfully")
 
 	// Initialize dependencies
 	validator := validator.New()
-	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerDuration, cfg.RateLimit.Duration)
+	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit)
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
@@ -66,22 +76,22 @@ func main() {
 	router := gin.Default()
 
 	// Apply global middlewares
-	router.Use(middleware.CORSMiddleware())
+	router.Use(middleware.CORSMiddleware(cfg.CORS))
 	router.Use(middleware.RateLimitMiddleware(rateLimiter))
 
 	// Welcome endpoint
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Welcome to Go JWT REST API",
-			"version": "1.0.0",
-			"status":  "running",
+			"message": welcomeMessage,
+			"version": apiVersion,
+			"status":  serverStatus,
 			"endpoints": gin.H{
-				"health":   "/health",
-				"register": "/api/v1/auth/register",
-				"login":    "/api/v1/auth/login",
-				"users":    "/api/v1/users (requires auth)",
+				"health":   healthEndpoint,
+				"register": registerEndpoint,
+				"login":    loginEndpoint,
+				"users":    usersEndpoint,
 			},
-			"documentation": "https://github.com/prassaaa/gojwt-rest-api",
+			"documentation": documentationURL,
 		})
 	})
 
@@ -108,10 +118,15 @@ func main() {
 		users.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
 			users.GET("/profile", userHandler.GetProfile)
-			users.GET("", userHandler.GetAllUsers)
-			users.GET("/:id", userHandler.GetUserByID)
-			users.PUT("/:id", userHandler.UpdateUser)
-			users.DELETE("/:id", userHandler.DeleteUser)
+			// Admin-only routes
+			admin := users.Group("")
+			admin.Use(middleware.AdminMiddleware(userService))
+			{
+				admin.GET("", userHandler.GetAllUsers)
+				admin.GET("/:id", userHandler.GetUserByID)
+				admin.PUT("/:id", userHandler.UpdateUser)
+				admin.DELETE("/:id", userHandler.DeleteUser)
+			}
 		}
 	}
 
@@ -120,16 +135,16 @@ func main() {
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
 	// Start server in a goroutine
 	go func() {
 		appLogger.Infof("Server starting on %s", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			appLogger.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
@@ -145,7 +160,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		appLogger.Fatal("Server forced to shutdown:", err)
 	}
 
 	// Close database connection

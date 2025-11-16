@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"errors"
 	"gojwt-rest-api/internal/domain"
 
 	"gorm.io/gorm"
@@ -29,8 +28,8 @@ func (r *userRepositoryImpl) FindByID(id uint) (*domain.User, error) {
 	var user domain.User
 	err := r.db.First(&user, id).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -42,8 +41,8 @@ func (r *userRepositoryImpl) FindByEmail(email string) (*domain.User, error) {
 	var user domain.User
 	err := r.db.Where("email = ?", email).First(&user).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -89,7 +88,7 @@ func (r *userRepositoryImpl) Delete(id uint) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("user not found")
+		return domain.ErrUserNotFound
 	}
 	return nil
 }

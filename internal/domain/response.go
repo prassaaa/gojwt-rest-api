@@ -5,7 +5,7 @@ type Response struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	Error   interface{} `json:"error,omitempty"`
 }
 
 // SuccessResponse creates a success response
@@ -18,14 +18,10 @@ func SuccessResponse(message string, data interface{}) *Response {
 }
 
 // ErrorResponse creates an error response
-func ErrorResponse(message string, err error) *Response {
-	errMsg := ""
-	if err != nil {
-		errMsg = err.Error()
-	}
+func ErrorResponse(message string, err interface{}) *Response {
 	return &Response{
 		Success: false,
 		Message: message,
-		Error:   errMsg,
+		Error:   err,
 	}
 }

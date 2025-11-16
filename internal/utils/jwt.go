@@ -1,11 +1,13 @@
 package utils
 
 import (
-	"errors"
+	"gojwt-rest-api/internal/domain"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+var signingMethod = jwt.SigningMethodHS256
 
 // JWTClaims represents JWT claims
 type JWTClaims struct {
@@ -25,7 +27,7 @@ func GenerateToken(userID uint, email string, secret string, expiration time.Dur
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(signingMethod, claims)
 	return token.SignedString([]byte(secret))
 }
 
@@ -34,7 +36,7 @@ func ValidateToken(tokenString string, secret string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// Validate signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("invalid signing method")
+			return nil, domain.ErrInvalidSigningMethod
 		}
 		return []byte(secret), nil
 	})
@@ -45,7 +47,7 @@ func ValidateToken(tokenString string, secret string) (*JWTClaims, error) {
 
 	claims, ok := token.Claims.(*JWTClaims)
 	if !ok || !token.Valid {
-		return nil, errors.New("invalid token")
+		return nil, domain.ErrInvalidToken
 	}
 
 	return claims, nil

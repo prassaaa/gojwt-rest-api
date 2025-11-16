@@ -2,24 +2,24 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"time"
 
+	"gojwt-rest-api/pkg/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // NewDatabase creates a new database connection
-func NewDatabase(cfg *Config) (*gorm.DB, error) {
+func NewDatabase(cfg *Config, appLogger *logger.Logger) (*gorm.DB, error) {
 	dsn := cfg.GetDSN()
 
 	// Configure GORM logger
-	gormLogger := logger.Default
+	var gormLogger gormlogger.Interface
 	if cfg.AppEnv == "production" {
-		gormLogger = logger.Default.LogMode(logger.Silent)
+		gormLogger = gormlogger.Default.LogMode(gormlogger.Silent)
 	} else {
-		gormLogger = logger.Default.LogMode(logger.Info)
+		gormLogger = gormlogger.Default.LogMode(gormlogger.Info)
 	}
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
@@ -43,7 +43,7 @@ func NewDatabase(cfg *Config) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	log.Println("Database connection established successfully")
+	appLogger.Info("Database connection established successfully")
 
 	return db, nil
 }

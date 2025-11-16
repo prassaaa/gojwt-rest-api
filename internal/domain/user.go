@@ -6,12 +6,13 @@ import (
 
 // User represents the user entity
 type User struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Name      string    `json:"name" gorm:"type:varchar(100);not null"`
-	Email     string    `json:"email" gorm:"type:varchar(100);uniqueIndex;not null"`
-	Password  string    `json:"-" gorm:"type:varchar(255);not null"` // "-" excludes from JSON
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"not null"`
+	Email     string    `gorm:"unique;not null"`
+	Password  string    `gorm:"not null"`
+	IsAdmin   bool      `gorm:"default:false"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
 // TableName specifies the table name for GORM
@@ -24,6 +25,7 @@ type UserResponse struct {
 	ID        uint      `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
+	IsAdmin   bool      `json:"is_admin"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -34,6 +36,7 @@ func (u *User) ToResponse() *UserResponse {
 		ID:        u.ID,
 		Name:      u.Name,
 		Email:     u.Email,
+		IsAdmin:   u.IsAdmin,
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}

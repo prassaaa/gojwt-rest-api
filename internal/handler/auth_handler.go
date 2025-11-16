@@ -29,20 +29,25 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	// Bind JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid request body", err))
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse(domain.ErrInvalidRequest.Error(), err))
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("validation failed", err))
+	if validationErrors := h.validator.Validate(&req); len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse(domain.ErrValidationFailed.Error(), validationErrors))
 		return
 	}
 
 	// Register user
 	user, err := h.userService.Register(&req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("registration failed", err))
+		switch err {
+		case domain.ErrUserAlreadyExists:
+			c.JSON(http.StatusConflict, domain.ErrorResponse(domain.ErrUserAlreadyExists.Error(), err))
+		default:
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrRegistrationFailed.Error(), err))
+		}
 		return
 	}
 
@@ -55,20 +60,25 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	// Bind JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid request body", err))
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse(domain.ErrInvalidRequest.Error(), err))
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("validation failed", err))
+	if validationErrors := h.validator.Validate(&req); len(validationErrors) > 0 {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse(domain.ErrValidationFailed.Error(), validationErrors))
 		return
 	}
 
 	// Login user
-	response, _, err := h.userService.Login(&req)
+	response, err := h.userService.Login(&req)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse("login failed", err))
+		switch err {
+		case domain.ErrInvalidCredentials:
+			c.JSON(http.StatusUnauthorized, domain.ErrorResponse(domain.ErrInvalidCredentials.Error(), err))
+		default:
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrLoginFailed.Error(), err))
+		}
 		return
 	}
 
