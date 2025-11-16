@@ -17,17 +17,19 @@ type Validator struct {
 }
 
 // New creates a new validator instance
-func New() *Validator {
+func New() (*Validator, error) {
 	validate := validator.New()
 	english := en.New()
 	uni := ut.New(english, english)
 	trans, _ := uni.GetTranslator("en")
-	en_translations.RegisterDefaultTranslations(validate, trans)
+		if err := en_translations.RegisterDefaultTranslations(validate, trans); err != nil {
+		return nil, err
+	}
 
 	return &Validator{
 		validate: validate,
 		trans:    trans,
-	}
+	}, nil
 }
 
 // Validate validates a struct and returns a slice of validation errors

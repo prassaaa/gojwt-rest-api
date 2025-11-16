@@ -38,9 +38,9 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case domain.ErrUserNotFound:
-			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err.Error()))
 		default:
-			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve user profile", err))
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve user profile", err.Error()))
 		}
 		return
 	}
@@ -52,7 +52,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid user ID", err))
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid user ID", err.Error()))
 		return
 	}
 
@@ -60,9 +60,9 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case domain.ErrUserNotFound:
-			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err.Error()))
 		default:
-			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve user", err))
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve user", err.Error()))
 		}
 		return
 	}
@@ -75,8 +75,16 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 	var pagination domain.PaginationQuery
 
 	// Parse query parameters
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid page parameter", err.Error()))
+		return
+	}
+	pageSize, err := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid page_size parameter", err.Error()))
+		return
+	}
 	search := c.Query("search")
 
 	pagination.Page = page
@@ -85,7 +93,7 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 
 	users, total, err := h.userService.GetAllUsers(&pagination)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve users", err))
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to retrieve users", err.Error()))
 		return
 	}
 
@@ -113,7 +121,7 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid user ID", err))
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid user ID", err.Error()))
 		return
 	}
 
@@ -136,11 +144,11 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case domain.ErrEmailAlreadyInUse:
-			c.JSON(http.StatusConflict, domain.ErrorResponse(domain.ErrEmailAlreadyInUse.Error(), err))
+			c.JSON(http.StatusConflict, domain.ErrorResponse(domain.ErrEmailAlreadyInUse.Error(), err.Error()))
 		case domain.ErrUserNotFound:
-			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err.Error()))
 		default:
-			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrFailedToUpdateUser.Error(), err))
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrFailedToUpdateUser.Error(), err.Error()))
 		}
 		return
 	}
@@ -152,16 +160,16 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid user ID", err))
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse("invalid user ID", err.Error()))
 		return
 	}
 
 	if err := h.userService.DeleteUser(uint(id)); err != nil {
 		switch err {
 		case domain.ErrUserNotFound:
-			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err))
+			c.JSON(http.StatusNotFound, domain.ErrorResponse(domain.ErrUserNotFound.Error(), err.Error()))
 		default:
-			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to delete user", err))
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse("failed to delete user", err.Error()))
 		}
 		return
 	}

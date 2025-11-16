@@ -46,7 +46,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		case domain.ErrUserAlreadyExists:
 			c.JSON(http.StatusConflict, domain.ErrorResponse(domain.ErrUserAlreadyExists.Error(), err))
 		default:
-			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrRegistrationFailed.Error(), err))
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrRegistrationFailed.Error(), err.Error()))
 		}
 		return
 	}
@@ -77,7 +77,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		case domain.ErrInvalidCredentials:
 			c.JSON(http.StatusUnauthorized, domain.ErrorResponse(domain.ErrInvalidCredentials.Error(), err))
 		default:
-			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrLoginFailed.Error(), err))
+			c.JSON(http.StatusInternalServerError, domain.ErrorResponse(domain.ErrLoginFailed.Error(), err.Error()))
 		}
 		return
 	}

@@ -59,7 +59,10 @@ func main() {
 	appLogger.Info("Database migrations completed successfully")
 
 	// Initialize dependencies
-	validator := validator.New()
+		validator, err := validator.New()
+	if err != nil {
+		appLogger.Fatal("Failed to create validator:", err)
+	}
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit)
 
 	// Initialize repositories

@@ -37,7 +37,7 @@ func NewUserService(userRepo repository.UserRepository, jwtSecret string, jwtExp
 func (s *userServiceImpl) Register(req *domain.RegisterRequest) (*domain.User, error) {
 	// Check if user already exists
 	existingUser, err := s.userRepo.FindByEmail(req.Email)
-	if err != nil {
+	if err != nil && err != domain.ErrUserNotFound {
 		// Handle potential database errors
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s *userServiceImpl) UpdateUser(id uint, req *domain.UpdateUserRequest) (*d
 	// Check if email is being changed and if it's already taken
 	if req.Email != "" && req.Email != user.Email {
 		existingUser, err := s.userRepo.FindByEmail(req.Email)
-		if err != nil {
+		if err != nil && err != domain.ErrUserNotFound {
 			// Handle potential database errors
 			return nil, err
 		}
