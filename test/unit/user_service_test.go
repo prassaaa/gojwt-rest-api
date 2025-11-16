@@ -445,3 +445,209 @@ func TestUserService_DeleteUser(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 }
+
+func TestUserService_ChangePassword(t *testing.T) {
+	jwtSecret := "test-secret"
+	jwtExpiry := 24 * time.Hour
+
+	t.Run("Successfully change password", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		req := &domain.ChangePasswordRequest{
+			OldPassword: "password123",
+			NewPassword: "newpassword123",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+		// Mock: update user
+		mockRepo.On("Update", mock.AnythingOfType("*domain.User")).Return(nil)
+
+		err := userService.ChangePassword(1, req)
+
+		require.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Change password with wrong old password", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		req := &domain.ChangePasswordRequest{
+			OldPassword: "wrongpassword",
+			NewPassword: "newpassword123",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+
+		err := userService.ChangePassword(1, req)
+
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, domain.ErrInvalidCredentials)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Change password for non-existent user", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		req := &domain.ChangePasswordRequest{
+			OldPassword: "password123",
+			NewPassword: "newpassword123",
+		}
+
+		// Mock: user not found
+		mockRepo.On("FindByID", uint(999)).Return(nil, domain.ErrUserNotFound)
+
+		err := userService.ChangePassword(999, req)
+
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, domain.ErrUserNotFound)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Change password with database error on update", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		req := &domain.ChangePasswordRequest{
+			OldPassword: "password123",
+			NewPassword: "newpassword123",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+		// Mock: update fails
+		mockRepo.On("Update", mock.AnythingOfType("*domain.User")).Return(errors.New("database error"))
+
+		err := userService.ChangePassword(1, req)
+
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, domain.ErrFailedToUpdateUser)
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+func TestUserService_UpdateOwnProfile(t *testing.T) {
+	jwtSecret := "test-secret"
+	jwtExpiry := 24 * time.Hour
+
+	t.Run("Successfully update own profile", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		req := &domain.UpdateProfileRequest{
+			Name:  "John Updated",
+			Email: "johnupdated@example.com",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+		// Mock: email doesn't exist (checking for duplicate)
+		mockRepo.On("FindByEmail", req.Email).Return(nil, domain.ErrUserNotFound)
+		// Mock: update succeeds
+		mockRepo.On("Update", mock.AnythingOfType("*domain.User")).Return(nil)
+
+		updatedUser, err := userService.UpdateOwnProfile(1, req)
+
+		require.NoError(t, err)
+		assert.NotNil(t, updatedUser)
+		assert.Equal(t, req.Name, updatedUser.Name)
+		assert.Equal(t, req.Email, updatedUser.Email)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Update own profile - name only", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		req := &domain.UpdateProfileRequest{
+			Name: "John Updated",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+		// Mock: update succeeds
+		mockRepo.On("Update", mock.AnythingOfType("*domain.User")).Return(nil)
+
+		updatedUser, err := userService.UpdateOwnProfile(1, req)
+
+		require.NoError(t, err)
+		assert.NotNil(t, updatedUser)
+		assert.Equal(t, req.Name, updatedUser.Name)
+		assert.Equal(t, user.Email, updatedUser.Email) // Email unchanged
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Update own profile with duplicate email", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		existingUser := helpers.CreateTestUser(2, "existing@example.com")
+		req := &domain.UpdateProfileRequest{
+			Name:  "John Updated",
+			Email: "existing@example.com",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+		// Mock: email already exists
+		mockRepo.On("FindByEmail", req.Email).Return(existingUser, nil)
+
+		updatedUser, err := userService.UpdateOwnProfile(1, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, updatedUser)
+		assert.ErrorIs(t, err, domain.ErrEmailAlreadyInUse)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Update own profile for non-existent user", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		req := &domain.UpdateProfileRequest{
+			Name: "John Updated",
+		}
+
+		// Mock: user not found
+		mockRepo.On("FindByID", uint(999)).Return(nil, domain.ErrUserNotFound)
+
+		updatedUser, err := userService.UpdateOwnProfile(999, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, updatedUser)
+		assert.ErrorIs(t, err, domain.ErrUserNotFound)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Update own profile with database error", func(t *testing.T) {
+		mockRepo := new(helpers.MockUserRepository)
+		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+
+		user := helpers.CreateTestUser(1, "john@example.com")
+		req := &domain.UpdateProfileRequest{
+			Name: "John Updated",
+		}
+
+		// Mock: find user
+		mockRepo.On("FindByID", uint(1)).Return(user, nil)
+		// Mock: update fails
+		mockRepo.On("Update", mock.AnythingOfType("*domain.User")).Return(errors.New("database error"))
+
+		updatedUser, err := userService.UpdateOwnProfile(1, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, updatedUser)
+		assert.ErrorIs(t, err, domain.ErrFailedToUpdateUser)
+		mockRepo.AssertExpectations(t)
+	})
+}

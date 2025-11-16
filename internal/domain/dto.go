@@ -40,3 +40,15 @@ type PaginatedResponse struct {
 	TotalItems int64       `json:"total_items"`
 	TotalPages int         `json:"total_pages"`
 }
+
+// ChangePasswordRequest represents change password request for self-service
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=6"`
+}
+
+// UpdateProfileRequest represents update own profile request for self-service
+type UpdateProfileRequest struct {
+	Name  string `json:"name" validate:"omitempty,min=2,max=100"`
+	Email string `json:"email" validate:"omitempty,email"`
+}

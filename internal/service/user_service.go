@@ -15,6 +15,9 @@ type UserService interface {
 	GetAllUsers(pagination *domain.PaginationQuery) ([]*domain.User, int64, error)
 	UpdateUser(id uint, req *domain.UpdateUserRequest) (*domain.User, error)
 	DeleteUser(id uint) error
+	// Self-service methods
+	ChangePassword(userID uint, req *domain.ChangePasswordRequest) error
+	UpdateOwnProfile(userID uint, req *domain.UpdateProfileRequest) (*domain.User, error)
 }
 
 // userServiceImpl is the implementation of UserService
@@ -154,4 +157,66 @@ func (s *userServiceImpl) UpdateUser(id uint, req *domain.UpdateUserRequest) (*d
 // DeleteUser deletes a user
 func (s *userServiceImpl) DeleteUser(id uint) error {
 	return s.userRepo.Delete(id)
+}
+
+// ChangePassword allows a user to change their own password
+func (s *userServiceImpl) ChangePassword(userID uint, req *domain.ChangePasswordRequest) error {
+	// Get user
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+
+	// Verify old password
+	if err := utils.CheckPassword(user.Password, req.OldPassword); err != nil {
+		return domain.ErrInvalidCredentials
+	}
+
+	// Hash new password
+	hashedPassword, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		return domain.ErrFailedToHashPassword
+	}
+
+	// Update password
+	user.Password = hashedPassword
+	if err := s.userRepo.Update(user); err != nil {
+		return domain.ErrFailedToUpdateUser
+	}
+
+	return nil
+}
+
+// UpdateOwnProfile allows a user to update their own profile
+func (s *userServiceImpl) UpdateOwnProfile(userID uint, req *domain.UpdateProfileRequest) (*domain.User, error) {
+	// Find existing user
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if email is being changed and if it's already taken
+	if req.Email != "" && req.Email != user.Email {
+		existingUser, err := s.userRepo.FindByEmail(req.Email)
+		if err != nil && err != domain.ErrUserNotFound {
+			// Handle potential database errors
+			return nil, err
+		}
+		if existingUser != nil {
+			return nil, domain.ErrEmailAlreadyInUse
+		}
+		user.Email = req.Email
+	}
+
+	// Update name if provided
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+
+	// Save changes
+	if err := s.userRepo.Update(user); err != nil {
+		return nil, domain.ErrFailedToUpdateUser
+	}
+
+	return user, nil
 }

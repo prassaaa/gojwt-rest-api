@@ -22,6 +22,12 @@ RESTful API dengan JWT Authentication yang dibangun menggunakan Go, mengikuti Cl
   - Password hashing menggunakan bcrypt
   - Protected routes dengan JWT middleware
 
+- **User Self-Service**
+  - User dapat mengelola profil sendiri
+  - Change password dengan verifikasi password lama
+  - Update profile (name & email)
+  - Get own profile
+
 - **CRUD Operations**
   - User management (Create, Read, Update, Delete)
   - Pagination dan filtering
@@ -178,14 +184,48 @@ Content-Type: application/json
 }
 ```
 
-### Users (Protected - Requires JWT)
+### Profile (Protected - User Self-Service)
 
 Semua endpoints di bawah memerlukan header:
 ```
 Authorization: Bearer <your-jwt-token>
 ```
 
-**Get Profile**
+**Get Own Profile**
+```
+GET /api/v1/profile
+```
+
+**Update Own Profile**
+```
+PUT /api/v1/profile
+Content-Type: application/json
+
+{
+  "name": "John Updated",
+  "email": "johnupdated@example.com"
+}
+```
+
+**Change Password**
+```
+PUT /api/v1/profile/password
+Content-Type: application/json
+
+{
+  "old_password": "password123",
+  "new_password": "newpassword123"
+}
+```
+
+### Users (Protected - Admin Only)
+
+Semua endpoints di bawah memerlukan header:
+```
+Authorization: Bearer <your-jwt-token>
+```
+
+**Get Profile** (deprecated - gunakan GET /api/v1/profile)
 ```
 GET /api/v1/users/profile
 ```
@@ -239,10 +279,32 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
   }'
 ```
 
-### Get Profile (dengan token)
+### Get Own Profile (dengan token)
 ```bash
-curl -X GET http://localhost:8080/api/v1/users/profile \
+curl -X GET http://localhost:8080/api/v1/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Update Own Profile
+```bash
+curl -X PUT http://localhost:8080/api/v1/profile \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Updated",
+    "email": "johnupdated@example.com"
+  }'
+```
+
+### Change Password
+```bash
+curl -X PUT http://localhost:8080/api/v1/profile/password \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "old_password": "password123",
+    "new_password": "newpassword123"
+  }'
 ```
 
 ## Best Practices yang Diimplementasikan

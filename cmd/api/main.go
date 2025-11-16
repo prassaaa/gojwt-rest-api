@@ -74,6 +74,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, validator)
 	userHandler := handler.NewUserHandler(userService, validator)
+	profileHandler := handler.NewProfileHandler(userService, validator)
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -114,6 +115,15 @@ func main() {
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+		}
+
+		// Profile routes (protected - user self-service)
+		profile := v1.Group("/profile")
+		profile.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+		{
+			profile.GET("", profileHandler.GetOwnProfile)
+			profile.PUT("", profileHandler.UpdateOwnProfile)
+			profile.PUT("/password", profileHandler.ChangePassword)
 		}
 
 		// User routes (protected)
