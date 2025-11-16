@@ -29,9 +29,41 @@ install: ## Install dependencies
 generate-secret: ## Generate JWT secret
 	@go run cmd/tools/generate_secret.go
 
-test: ## Run tests
-	@echo "Running tests..."
-	@go test -v ./...
+test: ## Run all tests
+	@echo "Running all tests..."
+	@go test -v ./test/...
+
+test-unit: ## Run unit tests only
+	@echo "Running unit tests..."
+	@go test -v ./test/unit/...
+
+test-integration: ## Run integration tests only
+	@echo "Running integration tests..."
+	@go test -v ./test/integration/...
+
+test-e2e: ## Run E2E tests only
+	@echo "Running E2E tests..."
+	@go test -v ./test/e2e/...
+
+test-coverage: ## Run tests with coverage report
+	@echo "Running tests with coverage..."
+	@go test ./test/... -coverprofile=coverage.out -covermode=atomic
+	@go tool cover -func=coverage.out
+	@echo "\nCoverage report saved to coverage.out"
+	@echo "To view HTML coverage report, run: make test-coverage-html"
+
+test-coverage-html: ## Generate HTML coverage report
+	@echo "Generating HTML coverage report..."
+	@go test ./test/... -coverprofile=coverage.out -covermode=atomic
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "HTML coverage report generated: coverage.html"
+
+test-watch: ## Run tests in watch mode (requires air)
+	@air -c .air.test.toml
+
+test-bench: ## Run benchmark tests
+	@echo "Running benchmark tests..."
+	@go test -bench=. -benchmem ./test/unit/...
 
 fmt: ## Format code
 	@echo "Formatting code..."
