@@ -21,6 +21,14 @@ var (
 	ErrInvalidAuthHeaderFormat    = errors.New("invalid authorization header format")
 	ErrInvalidOrExpiredToken      = errors.New("invalid or expired token")
 	ErrRateLimitExceeded          = errors.New("rate limit exceeded")
+
+	// Token errors
+	ErrTokenNotFound              = errors.New("token not found")
+	ErrTokenExpired               = errors.New("token has expired")
+	ErrTokenRevoked               = errors.New("token has been revoked")
+	ErrTokenReused                = errors.New("token reuse detected - potential security breach")
+	ErrInvalidRefreshToken        = errors.New("invalid refresh token")
+	ErrFailedToCreateRefreshToken = errors.New("failed to create refresh token")
 )
 
 type ValidationError struct {

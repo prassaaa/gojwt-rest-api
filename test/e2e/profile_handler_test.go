@@ -23,8 +23,9 @@ import (
 func TestProfileHandler_GetOwnProfile(t *testing.T) {
 	t.Run("Successfully get own profile", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
+		mockTokenRepo := new(helpers.MockTokenRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -63,7 +64,8 @@ func TestProfileHandler_GetOwnProfile(t *testing.T) {
 	t.Run("Get profile without authentication", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -84,7 +86,8 @@ func TestProfileHandler_UpdateOwnProfile(t *testing.T) {
 	t.Run("Successfully update own profile", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -130,7 +133,8 @@ func TestProfileHandler_UpdateOwnProfile(t *testing.T) {
 	t.Run("Update profile with invalid email format", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -166,7 +170,8 @@ func TestProfileHandler_UpdateOwnProfile(t *testing.T) {
 	t.Run("Update profile with duplicate email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -211,7 +216,8 @@ func TestProfileHandler_UpdateOwnProfile(t *testing.T) {
 	t.Run("Update profile without authentication", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -238,7 +244,8 @@ func TestProfileHandler_ChangePassword(t *testing.T) {
 	t.Run("Successfully change password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -282,7 +289,8 @@ func TestProfileHandler_ChangePassword(t *testing.T) {
 	t.Run("Change password with wrong old password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -324,7 +332,8 @@ func TestProfileHandler_ChangePassword(t *testing.T) {
 	t.Run("Change password with short new password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -360,7 +369,8 @@ func TestProfileHandler_ChangePassword(t *testing.T) {
 	t.Run("Change password without authentication", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 
@@ -386,7 +396,8 @@ func TestProfileHandler_ChangePassword(t *testing.T) {
 	t.Run("Change password with missing fields", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		profileHandler := handler.NewProfileHandler(userService, v)
 

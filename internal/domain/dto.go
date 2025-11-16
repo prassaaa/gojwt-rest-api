@@ -13,10 +13,31 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
-// LoginResponse represents login response with token
+// LoginResponse represents login response with tokens
 type LoginResponse struct {
-	User  *UserResponse `json:"user"`
-	Token string        `json:"token"`
+	User         *UserResponse `json:"user"`
+	AccessToken  string        `json:"access_token"`
+	RefreshToken string        `json:"refresh_token"`
+	ExpiresIn    int64         `json:"expires_in"` // seconds until access token expires
+	TokenType    string        `json:"token_type"`
+}
+
+// RefreshTokenRequest represents refresh token request
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+// RefreshTokenResponse represents refresh token response
+type RefreshTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+}
+
+// LogoutRequest represents logout request
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 // UpdateUserRequest represents update user request

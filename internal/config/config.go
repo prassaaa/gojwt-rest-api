@@ -39,8 +39,9 @@ type DatabaseConfig struct {
 
 // JWTConfig holds JWT configuration
 type JWTConfig struct {
-	Secret     string
-	Expiration time.Duration
+	Secret                string
+	AccessTokenExpiration time.Duration
+	RefreshTokenExpiration time.Duration
 }
 
 // RateLimitConfig holds rate limiting configuration
@@ -76,8 +77,9 @@ func Load() (*Config, error) {
 			DBName:   getEnv("DB_NAME", "gojwt_db"),
 		},
 		JWT: JWTConfig{
-			Secret:     getEnv("JWT_SECRET", ""),
-			Expiration: time.Hour * time.Duration(getEnvAsInt("JWT_EXPIRATION_HOURS", 24)),
+			Secret:                 getEnv("JWT_SECRET", ""),
+			AccessTokenExpiration:  parseDuration(getEnv("JWT_ACCESS_EXPIRATION", "15m")),
+			RefreshTokenExpiration: parseDuration(getEnv("JWT_REFRESH_EXPIRATION", "168h")), // 7 days
 		},
 		RateLimit: RateLimitConfig{
 			RequestsPerDuration: getEnvAsInt("RATE_LIMIT_REQUESTS", 100),

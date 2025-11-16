@@ -16,11 +16,13 @@ import (
 
 func TestUserService_Register(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successful registration", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := helpers.CreateRegisterRequest("John Doe", "john@example.com", "password123")
 
@@ -43,7 +45,8 @@ func TestUserService_Register(t *testing.T) {
 
 	t.Run("Registration with existing email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := helpers.CreateRegisterRequest("John Doe", "existing@example.com", "password123")
 		existingUser := helpers.CreateTestUser(1, req.Email)
@@ -62,7 +65,8 @@ func TestUserService_Register(t *testing.T) {
 
 	t.Run("Registration with database error on email check", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := helpers.CreateRegisterRequest("John Doe", "john@example.com", "password123")
 		dbError := errors.New("database connection error")
@@ -81,7 +85,8 @@ func TestUserService_Register(t *testing.T) {
 
 	t.Run("Registration with create error", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := helpers.CreateRegisterRequest("John Doe", "john@example.com", "password123")
 
@@ -102,11 +107,13 @@ func TestUserService_Register(t *testing.T) {
 
 func TestUserService_Login(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successful login", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		password := "password123"
 		hashedPassword, _ := utils.HashPassword(password)
@@ -122,27 +129,32 @@ func TestUserService_Login(t *testing.T) {
 
 		// Mock: user found
 		mockRepo.On("FindByEmail", req.Email).Return(user, nil)
+		// Mock: token creation
+		mockTokenRepo.On("CreateRefreshToken", mock.AnythingOfType("*domain.RefreshToken")).Return(nil)
 
 		response, err := userService.Login(req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, response)
-		assert.NotEmpty(t, response.Token)
+		assert.NotEmpty(t, response.AccessToken)
+		assert.NotEmpty(t, response.RefreshToken)
 		assert.Equal(t, user.ID, response.User.ID)
 		assert.Equal(t, user.Email, response.User.Email)
 
 		// Verify token is valid
-		claims, err := utils.ValidateToken(response.Token, jwtSecret)
+		claims, err := utils.ValidateToken(response.AccessToken, jwtSecret)
 		require.NoError(t, err)
 		assert.Equal(t, user.ID, claims.UserID)
 		assert.Equal(t, user.Email, claims.Email)
 
 		mockRepo.AssertExpectations(t)
+		mockTokenRepo.AssertExpectations(t)
 	})
 
 	t.Run("Login with non-existent email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := helpers.CreateLoginRequest("nonexistent@example.com", "password123")
 
@@ -160,7 +172,8 @@ func TestUserService_Login(t *testing.T) {
 
 	t.Run("Login with wrong password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		correctPassword := "password123"
 		wrongPassword := "wrongpassword"
@@ -188,11 +201,13 @@ func TestUserService_Login(t *testing.T) {
 
 func TestUserService_GetUserByID(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successfully get user by ID", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		expectedUser := helpers.CreateTestUser(1, "john@example.com")
 
@@ -211,7 +226,8 @@ func TestUserService_GetUserByID(t *testing.T) {
 
 	t.Run("User not found", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		// Mock: user not found
 		mockRepo.On("FindByID", uint(999)).Return(nil, domain.ErrUserNotFound)
@@ -228,11 +244,13 @@ func TestUserService_GetUserByID(t *testing.T) {
 
 func TestUserService_GetAllUsers(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successfully get all users with valid pagination", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		expectedUsers := []*domain.User{
 			helpers.CreateTestUser(1, "user1@example.com"),
@@ -255,7 +273,8 @@ func TestUserService_GetAllUsers(t *testing.T) {
 
 	t.Run("Set default pagination values", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		pagination := helpers.CreatePaginationQuery(0, 0, "")
 
@@ -277,7 +296,8 @@ func TestUserService_GetAllUsers(t *testing.T) {
 
 	t.Run("Limit max page size to 100", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		pagination := helpers.CreatePaginationQuery(1, 200, "")
 
@@ -297,11 +317,13 @@ func TestUserService_GetAllUsers(t *testing.T) {
 
 func TestUserService_UpdateUser(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successfully update user name", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		existingUser := helpers.CreateTestUser(1, "john@example.com")
 		req := helpers.CreateUpdateUserRequest("John Updated", "")
@@ -324,7 +346,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 
 	t.Run("Successfully update user email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		existingUser := helpers.CreateTestUser(1, "old@example.com")
 		newEmail := "new@example.com"
@@ -350,7 +373,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 
 	t.Run("Update fails when user not found", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := helpers.CreateUpdateUserRequest("John Updated", "")
 
@@ -368,7 +392,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 
 	t.Run("Update fails when email already in use", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		existingUser := helpers.CreateTestUser(1, "john@example.com")
 		anotherUser := helpers.CreateTestUser(2, "taken@example.com")
@@ -390,7 +415,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 
 	t.Run("Update with database error", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		existingUser := helpers.CreateTestUser(1, "john@example.com")
 		req := helpers.CreateUpdateUserRequest("John Updated", "")
@@ -412,11 +438,13 @@ func TestUserService_UpdateUser(t *testing.T) {
 
 func TestUserService_DeleteUser(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successfully delete user", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		// Mock: delete succeeds
 		mockRepo.On("Delete", uint(1)).Return(nil)
@@ -430,7 +458,8 @@ func TestUserService_DeleteUser(t *testing.T) {
 
 	t.Run("Delete with database error", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		dbError := errors.New("database error")
 
@@ -448,11 +477,13 @@ func TestUserService_DeleteUser(t *testing.T) {
 
 func TestUserService_ChangePassword(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successfully change password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		req := &domain.ChangePasswordRequest{
@@ -473,7 +504,8 @@ func TestUserService_ChangePassword(t *testing.T) {
 
 	t.Run("Change password with wrong old password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		req := &domain.ChangePasswordRequest{
@@ -493,7 +525,8 @@ func TestUserService_ChangePassword(t *testing.T) {
 
 	t.Run("Change password for non-existent user", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := &domain.ChangePasswordRequest{
 			OldPassword: "password123",
@@ -512,7 +545,8 @@ func TestUserService_ChangePassword(t *testing.T) {
 
 	t.Run("Change password with database error on update", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		req := &domain.ChangePasswordRequest{
@@ -535,11 +569,13 @@ func TestUserService_ChangePassword(t *testing.T) {
 
 func TestUserService_UpdateOwnProfile(t *testing.T) {
 	jwtSecret := "test-secret"
-	jwtExpiry := 24 * time.Hour
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
 
 	t.Run("Successfully update own profile", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		req := &domain.UpdateProfileRequest{
@@ -565,7 +601,8 @@ func TestUserService_UpdateOwnProfile(t *testing.T) {
 
 	t.Run("Update own profile - name only", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		req := &domain.UpdateProfileRequest{
@@ -588,7 +625,8 @@ func TestUserService_UpdateOwnProfile(t *testing.T) {
 
 	t.Run("Update own profile with duplicate email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		existingUser := helpers.CreateTestUser(2, "existing@example.com")
@@ -612,7 +650,8 @@ func TestUserService_UpdateOwnProfile(t *testing.T) {
 
 	t.Run("Update own profile for non-existent user", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		req := &domain.UpdateProfileRequest{
 			Name: "John Updated",
@@ -631,7 +670,8 @@ func TestUserService_UpdateOwnProfile(t *testing.T) {
 
 	t.Run("Update own profile with database error", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, jwtSecret, jwtExpiry)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, accessExpiry, refreshExpiry)
 
 		user := helpers.CreateTestUser(1, "john@example.com")
 		req := &domain.UpdateProfileRequest{

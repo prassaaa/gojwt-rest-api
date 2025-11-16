@@ -27,7 +27,8 @@ func setupRouter() *gin.Engine {
 func TestAuthHandler_Register(t *testing.T) {
 	t.Run("Successfully register new user", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -65,7 +66,8 @@ func TestAuthHandler_Register(t *testing.T) {
 
 	t.Run("Register with invalid email format", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -95,7 +97,8 @@ func TestAuthHandler_Register(t *testing.T) {
 
 	t.Run("Register with short password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -125,7 +128,8 @@ func TestAuthHandler_Register(t *testing.T) {
 
 	t.Run("Register with existing email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -162,7 +166,8 @@ func TestAuthHandler_Register(t *testing.T) {
 
 	t.Run("Register with missing fields", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -193,8 +198,9 @@ func TestAuthHandler_Register(t *testing.T) {
 func TestAuthHandler_Login(t *testing.T) {
 	t.Run("Successfully login with valid credentials", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
+		mockTokenRepo := new(helpers.MockTokenRepository)
 		jwtSecret := "test-secret"
-		userService := service.NewUserService(mockRepo, jwtSecret, 24*time.Hour)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -210,6 +216,8 @@ func TestAuthHandler_Login(t *testing.T) {
 
 		// Mock: user found
 		mockRepo.On("FindByEmail", "john@example.com").Return(user, nil)
+		// Mock: token creation
+		mockTokenRepo.On("CreateRefreshToken", mock.AnythingOfType("*domain.RefreshToken")).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -226,15 +234,18 @@ func TestAuthHandler_Login(t *testing.T) {
 		assert.NotNil(t, response["data"])
 
 		data := response["data"].(map[string]interface{})
-		assert.NotEmpty(t, data["token"])
+		assert.NotEmpty(t, data["access_token"])
+		assert.NotEmpty(t, data["refresh_token"])
 		assert.NotNil(t, data["user"])
 
 		mockRepo.AssertExpectations(t)
+		mockTokenRepo.AssertExpectations(t)
 	})
 
 	t.Run("Login with non-existent email", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -269,7 +280,8 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	t.Run("Login with wrong password", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -304,7 +316,8 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	t.Run("Login with invalid email format", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 
@@ -333,7 +346,8 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	t.Run("Login with empty body", func(t *testing.T) {
 		mockRepo := new(helpers.MockUserRepository)
-		userService := service.NewUserService(mockRepo, "test-secret", 24*time.Hour)
+		mockTokenRepo := new(helpers.MockTokenRepository)
+		userService := service.NewUserService(mockRepo, mockTokenRepo, "test-secret", 15*time.Minute, 7*24*time.Hour)
 		v, _ := validator.New()
 		authHandler := handler.NewAuthHandler(userService, v)
 

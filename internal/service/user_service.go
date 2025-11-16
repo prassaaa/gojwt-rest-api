@@ -11,6 +11,8 @@ import (
 type UserService interface {
 	Register(req *domain.RegisterRequest) (*domain.User, error)
 	Login(req *domain.LoginRequest) (*domain.LoginResponse, error)
+	RefreshToken(req *domain.RefreshTokenRequest) (*domain.RefreshTokenResponse, error)
+	Logout(userID uint, req *domain.LogoutRequest) error
 	GetUserByID(id uint) (*domain.User, error)
 	GetAllUsers(pagination *domain.PaginationQuery) ([]*domain.User, int64, error)
 	UpdateUser(id uint, req *domain.UpdateUserRequest) (*domain.User, error)
@@ -22,17 +24,27 @@ type UserService interface {
 
 // userServiceImpl is the implementation of UserService
 type userServiceImpl struct {
-	userRepo  repository.UserRepository
-	jwtSecret string
-	jwtExpiry time.Duration
+	userRepo          repository.UserRepository
+	tokenRepo         repository.TokenRepository
+	jwtSecret         string
+	accessTokenExpiry time.Duration
+	refreshTokenExpiry time.Duration
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repository.UserRepository, jwtSecret string, jwtExpiry time.Duration) UserService {
+func NewUserService(
+	userRepo repository.UserRepository,
+	tokenRepo repository.TokenRepository,
+	jwtSecret string,
+	accessTokenExpiry time.Duration,
+	refreshTokenExpiry time.Duration,
+) UserService {
 	return &userServiceImpl{
-		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
-		jwtExpiry: jwtExpiry,
+		userRepo:           userRepo,
+		tokenRepo:          tokenRepo,
+		jwtSecret:          jwtSecret,
+		accessTokenExpiry:  accessTokenExpiry,
+		refreshTokenExpiry: refreshTokenExpiry,
 	}
 }
 
@@ -68,7 +80,7 @@ func (s *userServiceImpl) Register(req *domain.RegisterRequest) (*domain.User, e
 	return user, nil
 }
 
-// Login authenticates a user and returns a JWT token
+// Login authenticates a user and returns JWT tokens
 func (s *userServiceImpl) Login(req *domain.LoginRequest) (*domain.LoginResponse, error) {
 	// Find user by email
 	user, err := s.userRepo.FindByEmail(req.Email)
@@ -81,18 +93,127 @@ func (s *userServiceImpl) Login(req *domain.LoginRequest) (*domain.LoginResponse
 		return nil, domain.ErrInvalidCredentials
 	}
 
-	// Generate JWT token
-	token, err := utils.GenerateToken(user.ID, user.Email, s.jwtSecret, s.jwtExpiry)
+	// Generate JWT token pair
+	tokenPair, tokenFamily, err := utils.GenerateTokenPair(
+		user.ID,
+		user.Email,
+		s.jwtSecret,
+		s.accessTokenExpiry,
+		s.refreshTokenExpiry,
+	)
 	if err != nil {
 		return nil, domain.ErrFailedToGenerateToken
 	}
 
+	// Store refresh token in database
+	refreshToken := &domain.RefreshToken{
+		UserID:      user.ID,
+		Token:       tokenPair.RefreshToken,
+		TokenFamily: tokenFamily,
+		ExpiresAt:   time.Now().Add(s.refreshTokenExpiry),
+	}
+
+	if err := s.tokenRepo.CreateRefreshToken(refreshToken); err != nil {
+		return nil, domain.ErrFailedToCreateRefreshToken
+	}
+
 	response := &domain.LoginResponse{
-		User:  user.ToResponse(),
-		Token: token,
+		User:         user.ToResponse(),
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		TokenType:    "Bearer",
 	}
 
 	return response, nil
+}
+
+// RefreshToken generates a new access token using a refresh token
+func (s *userServiceImpl) RefreshToken(req *domain.RefreshTokenRequest) (*domain.RefreshTokenResponse, error) {
+	// Find refresh token in database
+	storedToken, err := s.tokenRepo.FindRefreshTokenByToken(req.RefreshToken)
+	if err != nil {
+		return nil, domain.ErrInvalidRefreshToken
+	}
+
+	// Check if token is valid
+	if !storedToken.IsValid() {
+		if storedToken.IsRevoked {
+			// Token reuse detected - revoke entire token family
+			_ = s.tokenRepo.RevokeTokenFamily(storedToken.TokenFamily)
+			return nil, domain.ErrTokenReused
+		}
+		return nil, domain.ErrTokenExpired
+	}
+
+	// Get user
+	user, err := s.userRepo.FindByID(storedToken.UserID)
+	if err != nil {
+		return nil, domain.ErrUserNotFound
+	}
+
+	// Generate new token pair (token rotation)
+	newTokenPair, _, err := utils.GenerateTokenPair(
+		user.ID,
+		user.Email,
+		s.jwtSecret,
+		s.accessTokenExpiry,
+		s.refreshTokenExpiry,
+	)
+	if err != nil {
+		return nil, domain.ErrFailedToGenerateToken
+	}
+
+	// Revoke old refresh token
+	now := time.Now()
+	storedToken.IsRevoked = true
+	storedToken.RevokedAt = &now
+	replacedBy := newTokenPair.RefreshToken
+	storedToken.ReplacedBy = &replacedBy
+
+	if err := s.tokenRepo.UpdateRefreshToken(storedToken); err != nil {
+		return nil, err
+	}
+
+	// Store new refresh token with same family (for rotation tracking)
+	newRefreshToken := &domain.RefreshToken{
+		UserID:      user.ID,
+		Token:       newTokenPair.RefreshToken,
+		TokenFamily: storedToken.TokenFamily, // Same family for rotation tracking
+		ExpiresAt:   time.Now().Add(s.refreshTokenExpiry),
+	}
+
+	if err := s.tokenRepo.CreateRefreshToken(newRefreshToken); err != nil {
+		return nil, domain.ErrFailedToCreateRefreshToken
+	}
+
+	response := &domain.RefreshTokenResponse{
+		AccessToken:  newTokenPair.AccessToken,
+		RefreshToken: newTokenPair.RefreshToken,
+		ExpiresIn:    newTokenPair.ExpiresIn,
+		TokenType:    "Bearer",
+	}
+
+	return response, nil
+}
+
+// Logout revokes refresh token and blacklists access token
+func (s *userServiceImpl) Logout(userID uint, req *domain.LogoutRequest) error {
+	// Revoke refresh token if provided
+	if req.RefreshToken != "" {
+		if err := s.tokenRepo.RevokeRefreshToken(req.RefreshToken); err != nil {
+			// Don't fail logout if refresh token is already revoked or not found
+			// Just log and continue
+		}
+	}
+
+	// Optionally: revoke all user's refresh tokens for "logout from all devices"
+	// Uncomment below to enable:
+	// if err := s.tokenRepo.RevokeAllUserRefreshTokens(userID); err != nil {
+	// 	return err
+	// }
+
+	return nil
 }
 
 // GetUserByID retrieves a user by ID

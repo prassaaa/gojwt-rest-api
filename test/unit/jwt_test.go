@@ -311,3 +311,156 @@ func BenchmarkGenerateTokenParallel(b *testing.B) {
 		}
 	})
 }
+
+// Refresh Token Tests
+
+func TestGenerateTokenPair(t *testing.T) {
+	secret := "test-secret-key"
+	userID := uint(1)
+	email := "test@example.com"
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
+
+	t.Run("Generate valid token pair", func(t *testing.T) {
+		tokenPair, tokenFamily, err := utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+
+		require.NoError(t, err)
+		require.NotNil(t, tokenPair)
+		assert.NotEmpty(t, tokenPair.AccessToken)
+		assert.NotEmpty(t, tokenPair.RefreshToken)
+		assert.NotEmpty(t, tokenFamily)
+		assert.Equal(t, int64(accessExpiry.Seconds()), tokenPair.ExpiresIn)
+
+		// Validate access token
+		claims, err := utils.ValidateToken(tokenPair.AccessToken, secret)
+		require.NoError(t, err)
+		assert.Equal(t, userID, claims.UserID)
+		assert.Equal(t, email, claims.Email)
+
+		// Verify refresh token is not a JWT (should be random string)
+		_, err = utils.ValidateToken(tokenPair.RefreshToken, secret)
+		assert.Error(t, err) // Refresh token should not be a JWT
+	})
+
+	t.Run("Generate multiple unique token pairs", func(t *testing.T) {
+		pair1, family1, err := utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+		require.NoError(t, err)
+
+		// Sleep for 1 second to ensure different timestamps in JWT
+		time.Sleep(1 * time.Second)
+
+		pair2, family2, err := utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+		require.NoError(t, err)
+
+		// Access tokens should be different due to different timestamps
+		assert.NotEqual(t, pair1.AccessToken, pair2.AccessToken)
+		// Refresh tokens (random) should always be unique
+		assert.NotEqual(t, pair1.RefreshToken, pair2.RefreshToken)
+		// Token families should be unique
+		assert.NotEqual(t, family1, family2)
+	})
+
+	t.Run("Refresh tokens are cryptographically secure", func(t *testing.T) {
+		tokens := make(map[string]bool)
+		iterations := 100
+
+		for i := 0; i < iterations; i++ {
+			pair, _, err := utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+			require.NoError(t, err)
+
+			// Check for duplicates
+			assert.False(t, tokens[pair.RefreshToken], "Duplicate refresh token generated")
+			tokens[pair.RefreshToken] = true
+
+			// Verify length (base64 encoded 32 bytes should be ~44 chars)
+			assert.Greater(t, len(pair.RefreshToken), 40)
+		}
+	})
+}
+
+func TestExtractTokenExpiry(t *testing.T) {
+	secret := "test-secret-key"
+	userID := uint(1)
+	email := "test@example.com"
+
+	t.Run("Extract expiry from valid token", func(t *testing.T) {
+		expiration := 2 * time.Hour
+		token, err := utils.GenerateToken(userID, email, secret, expiration)
+		require.NoError(t, err)
+
+		expiryTime, err := utils.ExtractTokenExpiry(token, secret)
+		require.NoError(t, err)
+
+		expectedExpiry := time.Now().Add(expiration)
+		diff := expiryTime.Sub(expectedExpiry)
+		assert.Less(t, diff.Abs(), 5*time.Second)
+	})
+
+	t.Run("Extract expiry fails with invalid token", func(t *testing.T) {
+		_, err := utils.ExtractTokenExpiry("invalid.token", secret)
+		assert.Error(t, err)
+	})
+
+	t.Run("Extract expiry fails with wrong secret", func(t *testing.T) {
+		token, err := utils.GenerateToken(userID, email, secret, time.Hour)
+		require.NoError(t, err)
+
+		_, err = utils.ExtractTokenExpiry(token, "wrong-secret")
+		assert.Error(t, err)
+	})
+}
+
+func TestTokenPairIntegration(t *testing.T) {
+	secret := "integration-test-secret"
+	userID := uint(42)
+	email := "integration@test.com"
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
+
+	t.Run("Complete token flow", func(t *testing.T) {
+		// 1. Generate initial token pair
+		pair1, family1, err := utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+		require.NoError(t, err)
+
+		// 2. Validate access token works
+		claims, err := utils.ValidateToken(pair1.AccessToken, secret)
+		require.NoError(t, err)
+		assert.Equal(t, userID, claims.UserID)
+
+		// Sleep to ensure different timestamps
+		time.Sleep(1 * time.Second)
+
+		// 3. Simulate refresh - generate new pair with same user
+		pair2, family2, err := utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+		require.NoError(t, err)
+
+		// 4. Verify new tokens are different
+		assert.NotEqual(t, pair1.AccessToken, pair2.AccessToken)
+		assert.NotEqual(t, pair1.RefreshToken, pair2.RefreshToken)
+
+		// 5. Token families should be different for different logins
+		assert.NotEqual(t, family1, family2)
+
+		// 6. Both access tokens should be valid
+		claims1, err := utils.ValidateToken(pair1.AccessToken, secret)
+		require.NoError(t, err)
+		claims2, err := utils.ValidateToken(pair2.AccessToken, secret)
+		require.NoError(t, err)
+
+		assert.Equal(t, claims1.UserID, claims2.UserID)
+		assert.Equal(t, claims1.Email, claims2.Email)
+	})
+}
+
+func BenchmarkGenerateTokenPair(b *testing.B) {
+	secret := "benchmark-secret"
+	userID := uint(1)
+	email := "bench@example.com"
+	accessExpiry := 15 * time.Minute
+	refreshExpiry := 7 * 24 * time.Hour
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, _ = utils.GenerateTokenPair(userID, email, secret, accessExpiry, refreshExpiry)
+	}
+}

@@ -19,8 +19,12 @@ RESTful API dengan JWT Authentication yang dibangun menggunakan Go, mengikuti Cl
 
 - **Authentication & Authorization**
   - Register dan Login dengan JWT
+  - **Refresh Token Mechanism** dengan automatic token rotation
+  - **Token Revocation & Blacklisting** untuk logout
+  - Token reuse detection untuk keamanan lebih baik
   - Password hashing menggunakan bcrypt
   - Protected routes dengan JWT middleware
+  - Short-lived access tokens (15 menit) & long-lived refresh tokens (7 hari)
 
 - **User Self-Service**
   - User dapat mengelola profil sendiri
@@ -34,6 +38,8 @@ RESTful API dengan JWT Authentication yang dibangun menggunakan Go, mengikuti Cl
   - Search functionality
 
 - **Security & Performance**
+  - **Refresh token rotation** untuk mencegah token reuse
+  - **Token family tracking** untuk deteksi suspicious activity
   - Rate limiting
   - CORS middleware
   - Input validation
@@ -182,6 +188,52 @@ Content-Type: application/json
   "email": "john@example.com",
   "password": "password123"
 }
+
+Response:
+{
+  "success": true,
+  "message": "login successful",
+  "data": {
+    "user": {...},
+    "access_token": "eyJhbGc...",
+    "refresh_token": "random_secure_token",
+    "expires_in": 900,
+    "token_type": "Bearer"
+  }
+}
+```
+
+**Refresh Token** (New!)
+```
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "your_refresh_token_here"
+}
+
+Response:
+{
+  "success": true,
+  "message": "token refreshed successfully",
+  "data": {
+    "access_token": "new_access_token",
+    "refresh_token": "new_refresh_token",
+    "expires_in": 900,
+    "token_type": "Bearer"
+  }
+}
+```
+
+**Logout** (New!)
+```
+POST /api/v1/auth/logout
+Authorization: Bearer <your-access-token>
+Content-Type: application/json
+
+{
+  "refresh_token": "your_refresh_token_here"
+}
 ```
 
 ### Profile (Protected - User Self-Service)
@@ -279,10 +331,35 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
   }'
 ```
 
+### Refresh Token
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN"
+  }'
+```
+
+### Logout
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/logout \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN"
+  }'
+```
+
 ### Get Own Profile (dengan token)
 ```bash
 curl -X GET http://localhost:8080/api/v1/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Test Refresh Token Feature
+Jalankan automated test script:
+```bash
+./test_refresh_token.sh
 ```
 
 ### Update Own Profile
@@ -409,3 +486,9 @@ golangci-lint run
 4. Use reverse proxy (Nginx)
 5. Enable HTTPS
 6. Setup monitoring dan logging
+
+## Documentation
+
+- **[Refresh Token Guide](./docs/REFRESH_TOKEN.md)** - Comprehensive guide untuk refresh token mechanism, token rotation, dan security features
+- **[JWT Secret Guide](./docs/JWT_SECRET_GUIDE.md)** - Panduan generate dan manage JWT secrets
+- **[Hot Reload Guide](./docs/HOT_RELOAD_GUIDE.md)** - Setup Air untuk development dengan hot reload

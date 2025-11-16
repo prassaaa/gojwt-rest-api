@@ -67,9 +67,16 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
+	tokenRepo := repository.NewTokenRepository(db)
 
 	// Initialize services
-	userService := service.NewUserService(userRepo, cfg.JWT.Secret, cfg.JWT.Expiration)
+	userService := service.NewUserService(
+		userRepo,
+		tokenRepo,
+		cfg.JWT.Secret,
+		cfg.JWT.AccessTokenExpiration,
+		cfg.JWT.RefreshTokenExpiration,
+	)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, validator)
@@ -115,6 +122,14 @@ func main() {
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.RefreshToken)
+		}
+
+		// Logout route (protected - requires authentication)
+		logout := v1.Group("/auth")
+		logout.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+		{
+			logout.POST("/logout", authHandler.Logout)
 		}
 
 		// Profile routes (protected - user self-service)
